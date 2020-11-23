@@ -60,7 +60,7 @@ end program MolDyn
 
 
 
-!Subroutine for reading the input datas from the file
+!=====================================Subroutine for reading the input datas from the file=====================================
 subroutine input_reader(filename,class,atom,mass,natom,length,steps,stept)
 
   !Declaration of local variables
@@ -79,7 +79,7 @@ end subroutine input_reader
 !---------------------------- --End of input reader subroutine------------------------------
 
 
-!Subroutine for the primitive cubic grid
+!=====================================Subroutine for the primitive cubic =====================================
 subroutine SC_Grid(natom,length,atom)
 
   !Declaration of local Variables
@@ -126,7 +126,7 @@ end subroutine SC_Grid
 !---------------------------- --End of primitive cubic grid subroutine------------------------------
 
 
-!Subroutine for the face centered cubic grid
+!=====================================Subroutine for the face centered cubic grid=====================================
 subroutine FCC_Grid(natom,length,atom)
 
   !Declaration of local Variables
@@ -192,7 +192,7 @@ end subroutine FCC_grid
 !---------------------------- --End of face ceneterd cubic grid subroutine------------------------------
 
 
-!Force calculation subroutine
+!=====================================Force calculation subroutine=====================================
 subroutine calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
 
   !Declaration of local Variables
@@ -217,3 +217,93 @@ subroutine calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
 
   end subroutine calc_force
   !---------------------------- --End of force calculation subroutine------------------------------
+
+
+!=====================================POtential energy calculation subroutine=====================================
+subroutine calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+
+    !Declaration of local Variables
+    integer :: i, natom
+    real, allocatable ::rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom)
+    real :: k, pot_harm
+
+    pot_harm=0
+
+    
+      do i=1,natom !Calculating potential energy for every atom
+
+          pot_harm=pot_harm+0.50d0*((rx(i)-ax(i)**2+ry(i)-ay(i)**2+rz(i)-az(i)**2))
+    
+      end do
+
+      !deallocation of memory 
+      deallocate(rx,ry,rz,ax,ay,az)
+
+    end subroutine calc_harmpot
+!------------------------------End of potential energy calculation subroutine------------------------------
+
+
+!=====================================Velocity Verlet Subroutine=====================================
+subroutine vverlet
+
+  !declaration of local Variables
+  integer :: i, natom,steps
+  real :: kin, k, mass, delta
+
+  call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
+  call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+
+    do i=1, natom !Setting velocities for every atom in every dimension as 0
+    
+        vx(i)=0.0d0;vy(i)=0.0d0;vz(i)=0.0d0
+    
+    end do
+
+    kin=0.0d0
+    k=0.0d0
+
+    do i=1,natom !Summing the kinetical energy over all atoms
+
+      kin=kin*0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
+
+    end do
+
+    do k=1, steps !Main loop 
+
+        kin=0.0d0
+
+          do i=1,natom 
+
+            !Calculating new velocities for every atom in every dimension
+            vx(i)=vx(i)+0.5*(fx(i)/mass)*delta
+            vy(i)=vy(i)+0.5*(fy(i)/mass)*delta
+            vz(i)=vz(i)+0.5*(fz(i)/mass)*delta
+
+            !Calculating new positions for every atom in every dimension
+            rx(i)=rx(i)+vx(i)*delta
+            ry(i)=ry(i)+vy(i)*delta
+            rz(i)=rz(i)+vz(i)*delta
+
+          end do 
+
+          call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
+
+          do i=1, natom !rescale velocities
+        
+            vx(i)=vx(i)+0.5*(fx(i)/mass)*delta
+            vy(i)=vy(i)+0.5*(fy(i)/mass)*delta
+            vz(i)=vz(i)+0.5*(fz(i)/mass)*delta
+
+            !calculate sum over all kinetical energies
+            kin=kin*0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
+
+          end do
+
+            call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+    end do       
+      
+
+
+
+
+        end subroutine vverlet
