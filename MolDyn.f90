@@ -85,9 +85,9 @@ subroutine SC_Grid(natom,length,atom)
   !Declaration of local Variables
   integer :: natom,n,nl,i,j,k
   real ::  hl,dl,x,y,z, length
-  real, allocatable :: fx(:),fy(:),fz(:)
+  real, allocatable :: rx(:),ry(:),rz(:)
   character :: atom*2
-  allocate(fx(natom),fy(natom),fz(natom))
+  allocate(rx(natom),ry(natom),rz(natom))
   write(*,*) "length in subroutine", length
 
   hl=length/2
@@ -112,11 +112,11 @@ n=0
           if(natom>=n) then
 
             x=i*dl-hl
-            fx(n)=x
+            rx(n)=x
             y=j*dl-hl
-            fy(n)=y
+            ry(n)=y
             z=k*dl-hl
-            fz(n)=z
+            rz(n)=z
             write(14,*) atom, x, y, z
 
           end if
@@ -137,7 +137,10 @@ subroutine FCC_Grid(natom,length,atom)
   !Declaration of local Variables
   integer :: natom,n,nl,i,j,k,sum
   real ::  hl,dl,x,y,z, length
+  real, allocatable :: rx(:),ry(:),rz(:)
   character :: atom*2
+  allocate(rx(natom),ry(natom),rz(natom))
+
   write(*,*) "length in subroutine", length
 
 
@@ -181,8 +184,11 @@ do i=0,2*nl-2
 
 
             x=i*dl-hl
+            rx(n)=x
             y=j*dl-hl
+            ry(n)=y
             z=k*dl-hl
+            rz(n)=z
             write(14,*) atom,x,y,z, i, j, k   !prints out “fort.14” file with coordinates
 
             end if
@@ -228,12 +234,12 @@ subroutine calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
 
 
 !=====================================POtential energy calculation subroutine=====================================
-subroutine calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+subroutine calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az,pot_harm)
 
     !Declaration of local Variables
     integer :: i, natom
     real, allocatable ::rx(:), ry(:), rz(:), ax(:), ay(:), az(:)
-    real :: k, pot_harm
+    real :: pot_harm
 
     allocate(rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom))
 
@@ -258,13 +264,13 @@ subroutine vverlet(natom)
 
   !declaration of local Variables
   integer :: i, natom,steps, k
-  real :: kin,mass, delta
+  real :: kin,mass, delta, etot, pot_harm
   real, allocatable ::rx(:), ry(:), rz(:), vx(:), vy(:), vz(:)
 
   allocate(rx(natom), ry(natom), rz(natom), vx(natom), vy(natom), vz(natom))
 
   call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
-  call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+  call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az, pot_harm)
 
     do i=1, natom !Setting velocities for every atom in every dimension as 0
 
@@ -280,7 +286,11 @@ subroutine vverlet(natom)
       kin=kin+0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
 
     end do
-
+    
+open(unit=file_no1,file="kinetic.txt",action="write")
+open(unit=file_no2,file="potential_harmonic.txt",action="write")
+open(unit=file_no3,file="energy_total.txt",action="write")
+  
     do k=1, steps !Main loop
 
         kin=0.0d0
@@ -300,6 +310,7 @@ subroutine vverlet(natom)
           end do
 
           call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
+            
 
           do i=1, natom !rescale velocities
 
@@ -309,11 +320,21 @@ subroutine vverlet(natom)
 
             !calculate sum over all kinetical energies
             kin=kin+0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
+            write(file_no1,*) "Iteration", k, "Energy", kin
 
           end do
 
-            call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
+            call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az,pot_harm)
+            write(file_no2,*) "Iteration", k, "Energy", pot_harm
+
+            etot=pot_harm+kin
+            write(file_no3,*) "Iteration", k, "Energy", etot
+            
+            
     end do
+    close(file_no1)
+    close(file_no2)
+    close(file_no3)
 
 end subroutine vverlet
 !------------------------------End of velocity Verlet subroutine------------------------------
