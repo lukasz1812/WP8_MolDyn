@@ -85,7 +85,9 @@ subroutine SC_Grid(natom,length,atom)
   !Declaration of local Variables
   integer :: natom,n,nl,i,j,k
   real ::  hl,dl,x,y,z, length
+  real, allocatable :: fx(:),fy(:),fz(:)
   character :: atom*2
+  allocate(fx(natom),fy(natom),fz(natom))
   write(*,*) "length in subroutine", length
 
   hl=length/2
@@ -110,8 +112,11 @@ n=0
           if(natom>=n) then
 
             x=i*dl-hl
+            fx(n)=x
             y=j*dl-hl
+            fy(n)=y
             z=k*dl-hl
+            fz(n)=z
             write(14,*) atom, x, y, z
 
           end if
@@ -197,10 +202,13 @@ subroutine calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
 
   !Declaration of local Variables
   integer :: i, natom
-  real, allocatable :: fx(natom), fy(natom), fz(natom) 
-  real, allocatable ::rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom)
+  real, allocatable :: fx(:), fy(:), fz(:)
+  real, allocatable ::rx(:), ry(:), rz(:), ax(:), ay(:), az(:)
   real :: k
 
+
+  allocate(fx(natom), fy(natom), fz(natom))
+  allocate(rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom))
 
     do i=1,natom !Calculating forces for each of natom and writing it into correspondig vector element
 
@@ -208,11 +216,11 @@ subroutine calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
         fx(i)=-k*(rx(i)-ax(i))
         fy(i)=-k*(ry(i)-ay(i))
         fz(i)=-k*(rz(i)-az(i))
-  
+
     end do
 
-    !deallocation of memory 
-    deallocate(fx,fy,fz) 
+    !deallocation of memory
+    deallocate(fx,fy,fz)
     deallocate(rx,ry,rz,ax,ay,az)
 
   end subroutine calc_force
@@ -224,19 +232,21 @@ subroutine calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
 
     !Declaration of local Variables
     integer :: i, natom
-    real, allocatable ::rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom)
+    real, allocatable ::rx(:), ry(:), rz(:), ax(:), ay(:), az(:)
     real :: k, pot_harm
+
+    allocate(rx(natom), ry(natom), rz(natom), ax(natom), ay(natom), az(natom))
 
     pot_harm=0
 
-    
+
       do i=1,natom !Calculating potential energy for every atom
 
           pot_harm=pot_harm+0.50d0*((rx(i)-ax(i)**2+ry(i)-ay(i)**2+rz(i)-az(i)**2))
-    
+
       end do
 
-      !deallocation of memory 
+      !deallocation of memory
       deallocate(rx,ry,rz,ax,ay,az)
 
     end subroutine calc_harmpot
@@ -244,19 +254,22 @@ subroutine calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
 
 
 !=====================================Velocity Verlet Subroutine=====================================
-subroutine vverlet
+subroutine vverlet(natom)
 
   !declaration of local Variables
-  integer :: i, natom,steps
-  real :: kin, k, mass, delta
+  integer :: i, natom,steps, k
+  real :: kin,mass, delta
+  real, allocatable ::rx(:), ry(:), rz(:), vx(:), vy(:), vz(:)
+
+  allocate(rx(natom), ry(natom), rz(natom), vx(natom), vy(natom), vz(natom))
 
   call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
   call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
 
     do i=1, natom !Setting velocities for every atom in every dimension as 0
-    
+
         vx(i)=0.0d0;vy(i)=0.0d0;vz(i)=0.0d0
-    
+
     end do
 
     kin=0.0d0
@@ -264,15 +277,15 @@ subroutine vverlet
 
     do i=1,natom !Summing the kinetical energy over all atoms
 
-      kin=kin*0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
+      kin=kin+0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
 
     end do
 
-    do k=1, steps !Main loop 
+    do k=1, steps !Main loop
 
         kin=0.0d0
 
-          do i=1,natom 
+          do i=1,natom
 
             !Calculating new velocities for every atom in every dimension
             vx(i)=vx(i)+0.5*(fx(i)/mass)*delta
@@ -284,26 +297,23 @@ subroutine vverlet
             ry(i)=ry(i)+vy(i)*delta
             rz(i)=rz(i)+vz(i)*delta
 
-          end do 
+          end do
 
           call calc_force(natom,rx,ry,rz,fx,fy,fz,boxl,ax,ay,az)
 
           do i=1, natom !rescale velocities
-        
+
             vx(i)=vx(i)+0.5*(fx(i)/mass)*delta
             vy(i)=vy(i)+0.5*(fy(i)/mass)*delta
             vz(i)=vz(i)+0.5*(fz(i)/mass)*delta
 
             !calculate sum over all kinetical energies
-            kin=kin*0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
+            kin=kin+0.5*mass*(vx(i)**2+vy(i)**2+vz(i)**2)
 
           end do
 
             call calc_harmpot(natom,rx,ry,rz,v,boxl,ax,ay,az)
-    end do       
-      
+    end do
 
-
-
-
-        end subroutine vverlet
+end subroutine vverlet
+!------------------------------End of velocity Verlet subroutine------------------------------
